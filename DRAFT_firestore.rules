@@ -1,0 +1,181 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedAdmin() {
+      return (isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        (request.auth.token.email == 'vigneshsl.career@gmail.com' ||
+         request.auth.token.email == 'bpppravin934589@gmail.com')) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Validation Blueprint: Artwork
+    function isValidArtwork(data) {
+      return data.keys().hasAll([
+          'id',
+          'catalogueNumber',
+          'title',
+          'categories',
+          'medium',
+          'year',
+          'description',
+          'technicalNotes',
+          'imageUrl',
+          'aspectRatio',
+          'isPlaceholder',
+          'replacementPathHint',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'catalogueNumber',
+          'title',
+          'tamilTitle',
+          'categories',
+          'medium',
+          'year',
+          'description',
+          'technicalNotes',
+          'imageUrl',
+          'companionImageUrl',
+          'companionLabel',
+          'aspectRatio',
+          'isPlaceholder',
+          'replacementPathHint',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.id is string && data.id.size() >= 1 && data.id.size() <= 128 && data.id.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.catalogueNumber is string && data.catalogueNumber.size() >= 1 && data.catalogueNumber.size() <= 32 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        (!('tamilTitle' in data) || (data.tamilTitle is string && data.tamilTitle.size() <= 200)) &&
+        data.categories is list && data.categories.size() >= 1 && data.categories.size() <= 7 &&
+        data.categories[0] is string && data.categories[0].size() >= 1 && data.categories[0].size() <= 50 &&
+        data.medium is string && data.medium.size() >= 1 && data.medium.size() <= 200 &&
+        data.year is string && data.year.size() >= 4 && data.year.size() <= 16 &&
+        data.description is string && data.description.size() >= 1 && data.description.size() <= 2000 &&
+        data.technicalNotes is string && data.technicalNotes.size() >= 0 && data.technicalNotes.size() <= 2000 &&
+        data.imageUrl is string && data.imageUrl.size() >= 0 && data.imageUrl.size() <= 900000 &&
+        (!('companionImageUrl' in data) || (data.companionImageUrl is string && data.companionImageUrl.size() <= 900000)) &&
+        (!('companionLabel' in data) || (data.companionLabel is string && data.companionLabel.size() <= 120)) &&
+        data.aspectRatio is string && data.aspectRatio.size() <= 20 && data.aspectRatio in ['portrait', 'square', 'landscape'] &&
+        data.isPlaceholder is bool &&
+        data.replacementPathHint is string && data.replacementPathHint.size() <= 250 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: SiteSetting
+    function isValidSiteSetting(data) {
+      return data.keys().hasAll([
+          'heroImageUrl',
+          'artistPortraitUrl',
+          'sculptureStudioUrl',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'heroImageUrl',
+          'artistPortraitUrl',
+          'sculptureStudioUrl',
+          'artworkIds',
+          'updatedAt'
+        ]) &&
+        data.heroImageUrl is string && data.heroImageUrl.size() <= 900000 &&
+        data.artistPortraitUrl is string && data.artistPortraitUrl.size() <= 900000 &&
+        data.sculptureStudioUrl is string && data.sculptureStudioUrl.size() <= 900000 &&
+        (!('artworkIds' in data) || (
+          data.artworkIds is list &&
+          data.artworkIds.size() <= 50 &&
+          (data.artworkIds.size() == 0 || (data.artworkIds[0] is string && data.artworkIds[0].size() <= 128))
+        )) &&
+        data.updatedAt is timestamp;
+    }
+
+    // Collection: /artworks/{artworkId} (Deterministic GET by ID, no unconstrained LIST needed)
+    match /artworks/{artworkId} {
+      allow get: if isValidId(artworkId);
+
+      allow create: if isValidId(artworkId) &&
+        isValidArtwork(incoming()) &&
+        incoming().id == artworkId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (isVerifiedAdmin() || incoming().replacementPathHint.size() <= 250);
+
+      allow update: if isValidId(artworkId) &&
+        isValidArtwork(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isVerifiedAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title',
+            'tamilTitle',
+            'categories',
+            'medium',
+            'year',
+            'description',
+            'technicalNotes',
+            'imageUrl',
+            'companionImageUrl',
+            'companionLabel',
+            'aspectRatio',
+            'isPlaceholder',
+            'replacementPathHint',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(artworkId) && (isVerifiedAdmin() || existing().id == artworkId);
+    }
+
+    // Collection: /settings/{settingId}
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId);
+
+      allow create: if isValidId(settingId) &&
+        isValidSiteSetting(incoming()) &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(settingId) &&
+        isValidSiteSetting(incoming()) &&
+        incoming().updatedAt == request.time &&
+        (
+          isVerifiedAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'heroImageUrl',
+            'artistPortraitUrl',
+            'sculptureStudioUrl',
+            'artworkIds',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(settingId) && isVerifiedAdmin();
+    }
+  }
+}

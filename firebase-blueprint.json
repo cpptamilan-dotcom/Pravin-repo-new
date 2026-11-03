@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "Artwork": {
+      "title": "Artwork",
+      "description": "An artwork item in Pravin Kumar's portfolio stored in the cloud.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the artwork",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "catalogueNumber": {
+          "type": "string",
+          "description": "Catalogue reference number (e.g., CAT. 01)",
+          "maxLength": 32
+        },
+        "title": {
+          "type": "string",
+          "description": "Artwork title",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "tamilTitle": {
+          "type": "string",
+          "description": "Optional Tamil subtitle for the sculpture",
+          "maxLength": 200
+        },
+        "categories": {
+          "type": "array",
+          "description": "Gallery categories the artwork belongs to"
+        },
+        "medium": {
+          "type": "string",
+          "description": "Artistic medium and technique",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "year": {
+          "type": "string",
+          "description": "Creation year",
+          "minLength": 4,
+          "maxLength": 16
+        },
+        "description": {
+          "type": "string",
+          "description": "Curatorial description of the artwork",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "technicalNotes": {
+          "type": "string",
+          "description": "Sculptural and technical notes",
+          "maxLength": 2000
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Cloud-hosted image URL or optimized data URI",
+          "maxLength": 900000
+        },
+        "companionImageUrl": {
+          "type": "string",
+          "description": "Optional secondary angle image URL",
+          "maxLength": 900000
+        },
+        "companionLabel": {
+          "type": "string",
+          "description": "Label for companion view toggle",
+          "maxLength": 120
+        },
+        "aspectRatio": {
+          "type": "string",
+          "enum": ["portrait", "square", "landscape"],
+          "maxLength": 20
+        },
+        "isPlaceholder": {
+          "type": "boolean",
+          "description": "Whether this slot is a replaceable placeholder"
+        },
+        "replacementPathHint": {
+          "type": "string",
+          "description": "Suggested repository path for image file",
+          "maxLength": 250
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated"
+        }
+      },
+      "required": [
+        "id",
+        "catalogueNumber",
+        "title",
+        "categories",
+        "medium",
+        "year",
+        "description",
+        "technicalNotes",
+        "imageUrl",
+        "aspectRatio",
+        "isPlaceholder",
+        "replacementPathHint",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SiteSetting": {
+      "title": "SiteSetting",
+      "description": "Global portfolio configuration, cloud artwork ID index, and cloud image overrides.",
+      "type": "object",
+      "properties": {
+        "heroImageUrl": {
+          "type": "string",
+          "description": "Custom cloud hero image URL or data URI",
+          "maxLength": 900000
+        },
+        "artistPortraitUrl": {
+          "type": "string",
+          "description": "Custom cloud artist portrait URL or data URI",
+          "maxLength": 900000
+        },
+        "sculptureStudioUrl": {
+          "type": "string",
+          "description": "Custom cloud sculpture showcase photo URL",
+          "maxLength": 900000
+        },
+        "artworkIds": {
+          "type": "array",
+          "description": "Bounded list of cloud artwork document IDs (max 50)"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated"
+        }
+      },
+      "required": ["heroImageUrl", "artistPortraitUrl", "sculptureStudioUrl", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/artworks/{artworkId}": {
+      "schema": { "$ref": "#/entities/Artwork" },
+      "description": "Stores cloud-persisted portfolio artworks uploaded or updated by the admin."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSetting" },
+      "description": "Stores cloud-persisted site media overrides and the index of cloud artwork IDs."
+    }
+  }
+}
